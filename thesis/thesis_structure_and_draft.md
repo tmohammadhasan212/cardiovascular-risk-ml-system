@@ -2,8 +2,7 @@
 
 **Working Title:** Design and Development of a Web-Based Machine Learning System for Cardiovascular Risk Prediction and Analysis  
 **Alternative Title:** A Comparative Study of Machine Learning Methods for Cardiovascular Risk Prediction with a Web-Based Data-Intensive Implementation  
-**Target:** Bachelor's Final-Year Thesis / Scientific Report  
-**Alignment:** University of Koblenz — M.Sc. Web and Data Science  
+**Degree:** Bachelor of Science in Computer Engineering  
 **Author:** Mohammad Hasan Talebi  
 
 ---

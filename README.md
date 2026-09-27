@@ -5,8 +5,7 @@
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E.svg)](https://scikit-learn.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Academic Alignment:** University of Koblenz — M.Sc. Web and Data Science  
-> **Thesis / Project Type:** Scientific Research + Data Science + Web/Data-Intensive Software Engineering  
+> **Project Type:** Bachelor's Final Graduation Project — Scientific Machine Learning & Web/Data-Intensive Software Engineering  
 > **Author:** Mohammad Hasan Talebi ([@tmohammadhasan212](https://github.com/tmohammadhasan212))
 
 ---

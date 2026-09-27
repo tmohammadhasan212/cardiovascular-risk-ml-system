@@ -2,7 +2,7 @@
 
 ## 1. Executive Architecture Overview
 
-The **Cardiovascular Risk Machine Learning System** is engineered as a decoupled, reproducible, data-intensive web system conforming to the University of Koblenz M.Sc. Web and Data Science final-year curriculum standards.
+The **Cardiovascular Risk Machine Learning System** is engineered as a decoupled, reproducible, data-intensive web system developed as a final Bachelor's graduation project.
 
 The system integrates four distinct subsystems:
 1. **Machine Learning & Feature Pipeline Subsystem**: Offline reproducible pipeline handling data ingestion, stratified leakage-free preprocessing, 7-model training, hyperparameter optimization, and SHAP explainability.

@@ -3,7 +3,7 @@
 ## Project Specification & Implementation Requirements
 
 **Target:** Bachelor's final-year project / scientific thesis  
-**Primary alignment:** University of Koblenz — M.Sc. Web and Data Science  
+**Project Scope:** Final Bachelor's Graduation Project in Computer Science / Software Engineering  
 **Suggested project type:** Scientific research + data science + web/data-intensive software system  
 **Recommended language:** English  
 **Core stack:** Python, pandas, NumPy, scikit-learn, FastAPI, SQL database, HTML/CSS/JavaScript or a lightweight frontend, Docker
@@ -1557,11 +1557,9 @@ Scientific Conclusion
 
 ---
 
-# 47. Alignment with University of Koblenz — Web and Data Science
+# 47. Curriculum Alignment — Web and Data-Intensive Systems Engineering
 
-The University of Koblenz describes the programme as combining data analysis with the design and development of Web and data-intensive systems. Its published programme structure includes Web Science, Network Theory and Dynamic Systems, Engineering Web and Data-intensive Systems, Data Science, Big Data, Machine Learning and Data Mining, with additional computer-science and interdisciplinary electives.
-
-The programme also states that applicants should have prior competencies in programming and basic algorithms/data structures, software design/modeling/testing, formal programming-language foundations, mathematics, academic writing/presentation, and formal languages/automata/computational complexity. Applicants are expected to have written scientific work, typically a bachelor's thesis.
+Modern academic curricula in Web and Data Science combine statistical machine-learning analysis with the design and development of web and data-intensive software systems. Key core competency areas include Machine Learning, Engineering Web & Data-Intensive Systems, Relational Data Modeling, REST API Design, and Software Quality Assurance.
 
 This project is therefore deliberately designed to demonstrate several relevant dimensions simultaneously:
 

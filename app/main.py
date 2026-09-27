@@ -39,8 +39,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description=(
         "Production-grade REST API and research platform for cardiovascular risk prediction, "
-        "model comparison, and SHAP explainability. Developed for University of Koblenz M.Sc. "
-        "Web and Data Science final thesis."
+        "model comparison, and SHAP explainability. Developed as a Bachelor's final graduation project."
     ),
     lifespan=lifespan,
     docs_url="/docs",
