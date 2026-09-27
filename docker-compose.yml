@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cardio_ml_app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME=Cardiovascular Risk ML System
+      - APP_ENV=production
+      - DATABASE_URL=sqlite:///./cardio_risk.db
+      - MODEL_PATH=models/best_model.joblib
+      - METADATA_PATH=models/model_metadata.json
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
