@@ -130,11 +130,16 @@ cardiovascular-risk-ml-system/
 │   ├── test_api.py                 # FastAPI endpoint tests
 │   ├── test_database.py            # Database CRUD and persistence tests
 │   └── test_integration.py         # Full end-to-end user journey test
+├── thesis/
+│   ├── Cardiovascular_Risk_ML_System_Technical_Thesis.docx  # Complete academic thesis deliverable (.docx)
+│   ├── build_thesis_docx.py                                 # Word document generator script (OMML math)
+│   └── thesis_structure_and_draft.md                        # Academic thesis blueprint & chapter drafts
 ├── docs/
 │   ├── architecture.md             # System design, data flow, ER diagram
 │   ├── methodology.md              # Research question, experiment design, metrics
 │   └── api.md                      # OpenAPI specification and sample payloads
 ├── notebooks/                      # Exploratory data analysis & experiments
+├── Bachelor_Final_Project_Specification.md  # Complete project requirements & architecture specification
 ├── Dockerfile                      # Production container image
 ├── docker-compose.yml              # Container orchestration (API + PostgreSQL)
 ├── pyproject.toml                  # Build metadata & dependency definitions
