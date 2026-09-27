@@ -65,10 +65,13 @@ def compute_roc_curve_data(
 ) -> Dict[str, List[float]]:
     """Generate ROC curve coordinates (False Positive Rate and True Positive Rate)."""
     fpr, tpr, thresholds = roc_curve(y_true, y_prob)
+    clean_thresholds = [
+        1.0 if np.isinf(x) else round(float(x), 4) for x in thresholds
+    ]
     return {
         "fpr": [round(float(x), 4) for x in fpr],
         "tpr": [round(float(x), 4) for x in tpr],
-        "thresholds": [round(float(x), 4) for x in thresholds],
+        "thresholds": clean_thresholds,
     }
 
 

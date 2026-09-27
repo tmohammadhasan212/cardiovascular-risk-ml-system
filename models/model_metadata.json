@@ -1,7 +1,7 @@
 {
   "model_name": "Logistic Regression",
   "model_version": "1.0.0",
-  "trained_at": "2026-09-27T15:16:48.712030+00:00",
+  "trained_at": "2026-09-27T15:19:59.798121+00:00",
   "training_samples": 242,
   "test_samples": 61,
   "best_hyperparameters": {
@@ -137,7 +137,7 @@
       1.0
     ],
     "thresholds": [
-      Infinity,
+      1.0,
       0.9852,
       0.918,
       0.9107,
