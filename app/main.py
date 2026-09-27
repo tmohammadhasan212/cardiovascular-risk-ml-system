@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -94,3 +94,13 @@ def index_view(request: Request):
             "<h1>Cardiovascular Risk ML System</h1><p>API is running. Visit <a href='/docs'>/docs</a> for Swagger UI.</p>"
         )
     return templates.TemplateResponse(request=request, name="index.html")
+ 
+ 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon_view():
+    """Serve favicon.ico directly to prevent browser 404 logs."""
+    favicon_file = static_dir / "favicon.ico"
+    if favicon_file.exists():
+        return FileResponse(favicon_file, media_type="image/x-icon")
+    return HTMLResponse(status_code=204)
+
