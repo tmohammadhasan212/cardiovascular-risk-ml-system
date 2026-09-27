@@ -217,12 +217,87 @@ def add_body_paragraph(doc, text, bold_prefix=None, space_after=6):
     return p
 
 
+def xml_escape(text: str) -> str:
+    """Escape special XML characters for OMML runs."""
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def o_r(text: str) -> str:
+    """Create an OMML text run."""
+    return f"<m:r><m:t>{xml_escape(text)}</m:t></m:r>"
+
+
+def o_sSup(base: str, sup: str) -> str:
+    """Create an OMML superscript expression."""
+    return f"<m:sSup><m:e>{base}</m:e><m:sup>{sup}</m:sup></m:sSup>"
+
+
+def o_sSub(base: str, sub: str) -> str:
+    """Create an OMML subscript expression."""
+    return f"<m:sSub><m:e>{base}</m:e><m:sub>{sub}</m:sub></m:sSub>"
+
+
+def o_sSubSup(base: str, sub: str, sup: str) -> str:
+    """Create an OMML subscript + superscript expression."""
+    return f"<m:sSubSup><m:e>{base}</m:e><m:sub>{sub}</m:sub><m:sup>{sup}</m:sup></m:sSubSup>"
+
+
+def o_frac(num: str, den: str) -> str:
+    """Create an OMML horizontal fraction bar expression."""
+    return f"<m:f><m:fPr><m:type m:val=\"bar\"/></m:fPr><m:num>{num}</m:num><m:den>{den}</m:den></m:f>"
+
+
+def o_rad(expr: str) -> str:
+    """Create an OMML radical (square root) expression."""
+    return f"<m:rad><m:radPr><m:degHide m:val=\"1\"/></m:radPr><m:deg/><m:e>{expr}</m:e></m:rad>"
+
+
+def o_delim(expr: str, beg="(", end=")") -> str:
+    """Create an OMML delimited group (parentheses, brackets, norms)."""
+    return f"<m:d><m:dPr><m:begChr m:val=\"{beg}\"/><m:endChr m:val=\"{end}\"/></m:dPr><m:e>{expr}</m:e></m:d>"
+
+
+def o_sum(sub: str, sup: str = None, expr: str = "") -> str:
+    """Create an OMML n-ary summation operator with limits."""
+    sup_hide = "1" if sup is None else "0"
+    sup_elem = f"<m:sup>{sup}</m:sup>" if sup is not None else "<m:sup/>"
+    return (
+        f"<m:nary>"
+        f"<m:naryPr><m:chr m:val=\"∑\"/><m:limLoc m:val=\"undOvr\"/><m:subHide m:val=\"0\"/><m:supHide m:val=\"{sup_hide}\"/></m:naryPr>"
+        f"<m:sub>{sub}</m:sub>{sup_elem}<m:e>{expr}</m:e>"
+        f"</m:nary>"
+    )
+
+
+def add_math_equation(doc, inner_omml_xml: str, space_before=4, space_after=6):
+    """Add a native Word Office Math (OMML) centered display equation paragraph."""
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(space_before)
+    p.paragraph_format.space_after = Pt(space_after)
+    omath_xml = (
+        f'<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+        f'<m:oMath>{inner_omml_xml}</m:oMath>'
+        f'</m:oMathPara>'
+    )
+    p._p.append(parse_xml(omath_xml))
+    return p
+
+
 def add_bullet_point(doc, bold_lead, text):
     """Add a structured bullet point."""
     p = doc.add_paragraph(style='List Bullet')
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(3)
     p.paragraph_format.line_spacing = 1.15
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     r_lead = p.add_run(bold_lead)
     r_lead.bold = True
@@ -234,6 +309,35 @@ def add_bullet_point(doc, bold_lead, text):
     r_body.font.name = "Calibri"
     r_body.font.size = Pt(10.5)
     r_body.font.color.rgb = COLOR_TEXT
+
+
+def add_numbered_item(doc, number_str, bold_lead, text, space_after=3):
+    """Add a structured numbered list item without line-break justification defects."""
+    p = doc.add_paragraph()
+    p.paragraph_format.left_indent = Inches(0.25)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(space_after)
+    p.paragraph_format.line_spacing = 1.15
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+    r_num = p.add_run(f"{number_str} ")
+    r_num.bold = True
+    r_num.font.name = "Calibri"
+    r_num.font.size = Pt(10.5)
+    r_num.font.color.rgb = COLOR_PRIMARY
+
+    if bold_lead:
+        r_lead = p.add_run(f"{bold_lead} ")
+        r_lead.bold = True
+        r_lead.font.name = "Calibri"
+        r_lead.font.size = Pt(10.5)
+        r_lead.font.color.rgb = COLOR_TEXT
+
+    r_body = p.add_run(text)
+    r_body.font.name = "Calibri"
+    r_body.font.size = Pt(10.5)
+    r_body.font.color.rgb = COLOR_TEXT
+    return p
 
 
 def setup_header_footer(doc):
@@ -278,59 +382,95 @@ def build_thesis_document():
     # =========================================================================
     # TITLE PAGE
     # =========================================================================
-    p_pre = doc.add_paragraph()
-    p_pre.paragraph_format.space_before = Pt(72)
-    p_pre.paragraph_format.space_after = Pt(12)
-    p_pre.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_badge = p_pre.add_run("TECHNICAL THESIS")
+    p_inst = doc.add_paragraph()
+    p_inst.paragraph_format.space_before = Pt(32)
+    p_inst.paragraph_format.space_after = Pt(4)
+    p_inst.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_univ = p_inst.add_run("Islamic Azad University, Tehran South Branch\n")
+    r_univ.font.name = "Calibri"
+    r_univ.font.size = Pt(14)
+    r_univ.bold = True
+    r_univ.font.color.rgb = COLOR_PRIMARY
+
+    r_fac = p_inst.add_run("Faculty of Engineering\n")
+    r_fac.font.name = "Calibri"
+    r_fac.font.size = Pt(12)
+    r_fac.font.color.rgb = COLOR_SECONDARY
+
+    p_badge = doc.add_paragraph()
+    p_badge.paragraph_format.space_before = Pt(16)
+    p_badge.paragraph_format.space_after = Pt(12)
+    p_badge.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_badge = p_badge.add_run("TECHNICAL THESIS")
     r_badge.font.name = "Calibri"
-    r_badge.font.size = Pt(14)
+    r_badge.font.size = Pt(13)
     r_badge.bold = True
     r_badge.font.color.rgb = COLOR_PRIMARY
 
     p_title = doc.add_paragraph()
     p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_title.paragraph_format.space_before = Pt(6)
-    p_title.paragraph_format.space_after = Pt(12)
+    p_title.paragraph_format.space_after = Pt(10)
     p_title.paragraph_format.line_spacing = 1.15
     r_title = p_title.add_run("Design and Development of a Web-Based Machine Learning System for Cardiovascular Risk Prediction and Analysis")
     r_title.font.name = "Calibri"
-    r_title.font.size = Pt(24)
+    r_title.font.size = Pt(22)
     r_title.bold = True
     r_title.font.color.rgb = RGBColor(15, 23, 42)
 
     p_sub = doc.add_paragraph()
     p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_sub.paragraph_format.space_before = Pt(0)
-    p_sub.paragraph_format.space_after = Pt(48)
+    p_sub.paragraph_format.space_after = Pt(36)
     r_sub = p_sub.add_run("A Comparative Study of Seven Machine Learning Paradigms with Leakage-Free Preprocessing, Explainable AI (SHAP), and Data-Intensive REST Architecture")
     r_sub.font.name = "Calibri"
-    r_sub.font.size = Pt(12.5)
+    r_sub.font.size = Pt(11.5)
     r_sub.font.color.rgb = COLOR_MUTED
 
-    # Metadata block on title page
+    # Metadata block on title page (Author & Supervisor)
     p_meta = doc.add_paragraph()
     p_meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_meta.paragraph_format.space_before = Pt(72)
+    p_meta.paragraph_format.space_before = Pt(24)
     p_meta.paragraph_format.space_after = Pt(4)
+
     r_auth_label = p_meta.add_run("Author:\n")
     r_auth_label.font.name = "Calibri"
-    r_auth_label.font.size = Pt(11)
+    r_auth_label.font.size = Pt(10.5)
     r_auth_label.font.color.rgb = COLOR_MUTED
 
-    r_author = p_meta.add_run("Mohammad Hasan Talebi\n")
+    r_author = p_meta.add_run("Mohammad Hasan Talebi\n\n")
     r_author.font.name = "Calibri"
-    r_author.font.size = Pt(15)
+    r_author.font.size = Pt(14)
     r_author.bold = True
     r_author.font.color.rgb = COLOR_PRIMARY
 
+    r_sup_label = p_meta.add_run("Supervisor:\n")
+    r_sup_label.font.name = "Calibri"
+    r_sup_label.font.size = Pt(10.5)
+    r_sup_label.font.color.rgb = COLOR_MUTED
+
+    r_sup = p_meta.add_run("Azita Shirazipour\n")
+    r_sup.font.name = "Calibri"
+    r_sup.font.size = Pt(14)
+    r_sup.bold = True
+    r_sup.font.color.rgb = COLOR_PRIMARY
+
+    p_inst_foot = doc.add_paragraph()
+    p_inst_foot.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_inst_foot.paragraph_format.space_before = Pt(28)
+    p_inst_foot.paragraph_format.space_after = Pt(4)
+    r_fac_line = p_inst_foot.add_run("Faculty of Engineering, Islamic Azad University, Tehran South Branch\n")
+    r_fac_line.font.name = "Calibri"
+    r_fac_line.font.size = Pt(11)
+    r_fac_line.font.color.rgb = COLOR_SECONDARY
+
     p_date = doc.add_paragraph()
     p_date.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_date.paragraph_format.space_before = Pt(24)
+    p_date.paragraph_format.space_before = Pt(8)
     p_date.paragraph_format.space_after = Pt(0)
-    r_date = p_date.add_run("Date: September 2026\nVersion: 1.0.0")
+    r_date = p_date.add_run("Date: 2024   March  20   , Wednesday")
     r_date.font.name = "Calibri"
-    r_date.font.size = Pt(10.5)
+    r_date.font.size = Pt(11)
     r_date.font.color.rgb = COLOR_MUTED
 
     doc.add_page_break()
@@ -339,8 +479,8 @@ def build_thesis_document():
     # ABSTRACT
     # =========================================================================
     h_abs = doc.add_heading("Abstract", level=1)
-    h_abs.paragraph_format.space_before = Pt(12)
-    h_abs.paragraph_format.space_after = Pt(12)
+    h_abs.paragraph_format.space_before = Pt(0)
+    h_abs.paragraph_format.space_after = Pt(6)
     h_abs.runs[0].font.name = "Calibri"
     h_abs.runs[0].font.size = Pt(18)
     h_abs.runs[0].font.color.rgb = COLOR_PRIMARY
@@ -351,7 +491,8 @@ def build_thesis_document():
         "and reproducible predictive screening mechanisms. However, the translation of clinical machine learning algorithms "
         "into operational environments routinely suffers from methodological flaws—predominantly data leakage between preprocessing "
         "and evaluation phases, reliance on uninformative aggregate accuracy metrics on clinical cohorts, opaque 'black-box' "
-        "decision boundaries, and monolithic software designs that lack verifiable persistence and testing standards."
+        "decision boundaries, and monolithic software designs that lack verifiable persistence and testing standards.",
+        space_after=4
     )
     add_body_paragraph(
         doc,
@@ -362,7 +503,8 @@ def build_thesis_document():
         "Cleveland cardiovascular cohort (N = 303 records), seven distinct algorithmic families were systematically benchmarked: "
         "Logistic Regression, K-Nearest Neighbors (KNN), Decision Tree, Random Forest, Support Vector Machine (SVM), AdaBoost, "
         "and Gradient Boosted Decision Trees (GBDT). To ensure mathematical rigor, a leakage-free preprocessing pipeline was developed "
-        "using scikit-learn ColumnTransformers, isolating all imputation and standard scaling parameters strictly within training folds."
+        "using scikit-learn ColumnTransformers, isolating all imputation and standard scaling parameters strictly within training folds.",
+        space_after=4
     )
     add_body_paragraph(
         doc,
@@ -373,7 +515,8 @@ def build_thesis_document():
         "and critically, a Sensitivity (Recall) of 92.86% (correctly detecting 26 of 28 cardiac pathology cases with only two false negatives). "
         "To resolve the black-box dilemma, Explainable Artificial Intelligence (XAI) was embedded via Shapley Additive Explanations (SHAP), "
         "revealing that major vessel count via fluoroscopy (ca), maximum exercise heart rate (thalach), and exercise-induced ST depression "
-        "(oldpeak) represent the dominant global clinical determinants, while supplying directional local patient-level attribution waterfalls."
+        "(oldpeak) represent the dominant global clinical determinants, while supplying directional local patient-level attribution waterfalls.",
+        space_after=4
     )
     add_body_paragraph(
         doc,
@@ -383,12 +526,13 @@ def build_thesis_document():
         "gauges, real-time SHAP visualizations, assessment history filtering, and CSV export. The entire system is supported by Docker Compose "
         "containerization and a rigorous automated test suite comprising 21 unit and integration tests executing with 100% passing status "
         "and 74% statement coverage. This work demonstrates that high clinical screening sensitivity, model explainability, and "
-        "production software engineering can be unified into a performant, maintainable, and reproducible data system."
+        "production software engineering can be unified into a performant, maintainable, and reproducible data system.",
+        space_after=4
     )
     
     p_kw = doc.add_paragraph()
-    p_kw.paragraph_format.space_before = Pt(8)
-    p_kw.paragraph_format.space_after = Pt(18)
+    p_kw.paragraph_format.space_before = Pt(4)
+    p_kw.paragraph_format.space_after = Pt(0)
     r_kw_title = p_kw.add_run("Keywords: ")
     r_kw_title.bold = True
     r_kw_title.font.name = "Calibri"
@@ -407,81 +551,88 @@ def build_thesis_document():
     h_toc.runs[0].font.color.rgb = COLOR_PRIMARY
 
     toc_items = [
-        ("1. Introduction", "1"),
-        ("   1.1 Background and Motivation", "1"),
-        ("   1.2 Problem Statement", "2"),
-        ("   1.3 Research Questions and Hypotheses", "3"),
-        ("   1.4 Project Objectives", "4"),
-        ("   1.5 Scope and Delimitations", "5"),
-        ("   1.6 Technical Contributions", "6"),
-        ("   1.7 Thesis Organization", "7"),
-        ("2. Background and Related Technologies", "8"),
-        ("   2.1 Clinical Pathophysiology and Diagnostic Biomarkers", "8"),
-        ("   2.2 Supervised Binary Classification in Clinical Tabular Domains", "9"),
-        ("   2.3 Mathematical Formulations of Candidate Algorithms", "10"),
-        ("   2.4 Explainable Artificial Intelligence (XAI) and Shapley Values", "12"),
-        ("   2.5 Modern Web Engineering: FastAPI and Asynchronous REST", "13"),
-        ("   2.6 Relational Persistence and Object-Relational Mapping (ORM)", "14"),
+        ("1. Introduction", "7"),
+        ("   1.1 Background and Motivation", "7"),
+        ("   1.2 Problem Statement", "7"),
+        ("   1.3 Research Questions and Hypotheses", "8"),
+        ("   1.4 Project Objectives", "9"),
+        ("   1.5 Scope and Delimitations", "9"),
+        ("   1.6 Technical Contributions", "10"),
+        ("   1.7 Thesis Organization", "10"),
+        ("2. Background and Related Technologies", "11"),
+        ("   2.1 Clinical Pathophysiology and Diagnostic Biomarkers", "11"),
+        ("   2.2 Supervised Binary Classification in Clinical Tabular Domains", "12"),
+        ("   2.3 Mathematical Formulations of Candidate Algorithms", "12"),
+        ("   2.4 Explainable Artificial Intelligence (XAI) and Shapley Values", "14"),
+        ("   2.5 Modern Web Engineering: FastAPI and Asynchronous REST", "14"),
+        ("   2.6 Relational Persistence and Object-Relational Mapping (ORM)", "15"),
         ("   2.7 Containerization and Environmental Reproducibility", "15"),
         ("3. Requirements Analysis", "16"),
         ("   3.1 Functional Requirements", "16"),
         ("   3.2 Non-Functional Requirements", "17"),
         ("   3.3 System Constraints", "18"),
-        ("   3.4 Use Case Specifications", "19"),
-        ("4. System Design and Architecture", "21"),
-        ("   4.1 Overall Architectural Topology", "21"),
-        ("   4.2 Component Architecture and Module Separation", "22"),
-        ("   4.3 End-to-End Data Flow Dynamics", "23"),
-        ("   4.4 Database Design and Entity Relationships", "24"),
-        ("   4.5 RESTful API Design and Endpoint Catalog", "25"),
-        ("   4.6 Security and Ethical Privacy Safeguards", "26"),
-        ("   4.7 Architectural Design Decisions and Trade-Off Analysis", "27"),
-        ("5. Implementation", "29"),
-        ("   5.1 Development Environment and Pinned Toolchain", "29"),
-        ("   5.2 Physical Project Layout and Directory Structure", "30"),
-        ("   5.3 Preprocessing Pipeline and Leakage Prevention Implementation", "31"),
-        ("   5.4 Machine Learning Benchmarking and Hyperparameter Optimization", "32"),
-        ("   5.5 Explainable AI (SHAP) Implementation", "34"),
-        ("   5.6 Database Layer and Repository Implementation", "35"),
-        ("   5.7 FastAPI Service and Router Implementation", "36"),
-        ("   5.8 Client Dashboard and Data Visualization Implementation", "37"),
-        ("   5.9 Configuration, Secrets, and Environment Management", "38"),
-        ("   5.10 Containerization and Docker Deployment", "39"),
-        ("6. Testing and Validation", "40"),
-        ("   6.1 Comprehensive Testing Strategy", "40"),
-        ("   6.2 Preprocessing and Data Pipeline Unit Tests", "41"),
-        ("   6.3 Machine Learning and SHAP Explainer Tests", "42"),
-        ("   6.4 Database and Repository Unit Tests", "43"),
-        ("   6.5 API Functional and Boundary Validation Tests", "44"),
-        ("   6.6 Full End-to-End Integration Workflow Verification", "45"),
-        ("   6.7 Empirical Test Results and Coverage Metrics", "46"),
-        ("   6.8 Real-World Debugging Case Studies and Root Cause Analysis", "47"),
-        ("   6.9 Codebase Refactoring and Maintainability Enhancements", "49"),
-        ("7. Evaluation and Discussion", "50"),
-        ("   7.1 Functional Requirements Fulfillment Audit", "50"),
-        ("   7.2 Empirical Model Benchmark Analysis (7 Algorithms)", "51"),
-        ("   7.3 Hold-out Test Generalization and Clinical Sensitivity", "53"),
-        ("   7.4 Global and Local Interpretability Findings", "54"),
-        ("   7.5 Scientific Discussion: The Bias-Variance Dilemma in Clinical Cohorts", "56"),
-        ("   7.6 System Performance, Scalability, and Maintainability", "57"),
-        ("8. Limitations and Future Work", "58"),
-        ("   8.1 Dataset and Demographic Limitations", "58"),
-        ("   8.2 Algorithmic and Experimental Constraints", "59"),
-        ("   8.3 Future Architectural and Clinical Roadmap", "60"),
-        ("9. Conclusion", "61"),
-        ("References", "63"),
-        ("Appendices", "66"),
-        ("   Appendix A: REST API Schema Reference", "66"),
-        ("   Appendix B: Database Table Definitions", "68"),
-        ("   Appendix C: Environment Configuration Example", "69"),
-        ("   Appendix D: Core Pipeline Implementation Excerpts", "70"),
+        ("   3.4 Use Case Specifications", "18"),
+        ("4. System Design and Architecture", "19"),
+        ("   4.1 Overall Architectural Topology", "19"),
+        ("   4.2 Component Architecture and Module Separation", "19"),
+        ("   4.3 End-to-End Data Flow Dynamics", "19"),
+        ("   4.4 Database Design and Entity Relationships", "20"),
+        ("   4.5 RESTful API Design and Endpoint Catalog", "21"),
+        ("   4.6 Security and Ethical Privacy Safeguards", "22"),
+        ("   4.7 Architectural Design Decisions and Trade-Off Analysis", "22"),
+        ("5. Implementation", "23"),
+        ("   5.1 Development Environment and Pinned Toolchain", "23"),
+        ("   5.2 Physical Project Layout and Directory Structure", "24"),
+        ("   5.3 Preprocessing Pipeline and Leakage Prevention Implementation", "25"),
+        ("   5.4 Machine Learning Benchmarking and Hyperparameter Optimization", "25"),
+        ("   5.5 Explainable AI (SHAP) Implementation", "25"),
+        ("   5.6 Database Layer and Repository Implementation", "26"),
+        ("   5.7 FastAPI Service and Router Implementation", "26"),
+        ("   5.8 Client Dashboard and Data Visualization Implementation", "26"),
+        ("   5.9 Configuration, Secrets, and Environment Management", "26"),
+        ("   5.10 Containerization and Docker Deployment", "26"),
+        ("6. Testing and Validation", "27"),
+        ("   6.1 Comprehensive Testing Strategy", "27"),
+        ("   6.2 Preprocessing and Data Pipeline Unit Tests", "27"),
+        ("   6.3 Machine Learning and SHAP Explainer Tests", "27"),
+        ("   6.4 Database and Repository Unit Tests", "27"),
+        ("   6.5 API Functional and Boundary Validation Tests", "28"),
+        ("   6.6 Full End-to-End Integration Workflow Verification", "28"),
+        ("   6.7 Empirical Test Results and Coverage Metrics", "28"),
+        ("   6.8 Real-World Debugging Case Studies and Root Cause Analysis", "29"),
+        ("   6.9 Codebase Refactoring and Maintainability Enhancements", "29"),
+        ("7. Evaluation and Discussion", "31"),
+        ("   7.1 Functional Requirements Fulfillment Audit", "31"),
+        ("   7.2 Empirical Model Benchmark Analysis (7 Algorithms)", "31"),
+        ("   7.3 Hold-out Test Generalization and Clinical Sensitivity", "32"),
+        ("   7.4 Global and Local Interpretability Findings", "32"),
+        ("   7.5 Scientific Discussion: The Bias-Variance Dilemma in Clinical Cohorts", "34"),
+        ("   7.6 System Performance, Scalability, and Maintainability", "34"),
+        ("8. Limitations and Future Work", "35"),
+        ("   8.1 Dataset and Demographic Limitations", "35"),
+        ("   8.2 Algorithmic and Experimental Constraints", "35"),
+        ("   8.3 Future Architectural and Clinical Roadmap", "35"),
+        ("9. Conclusion", "36"),
+        ("   9.1 Problem Summary", "36"),
+        ("   9.2 Implemented Solution and Technical Highlights", "36"),
+        ("   9.3 Final Reflections", "36"),
+        ("References", "37"),
+        ("Appendices", "38"),
+        ("   Appendix A: REST API Schema Reference", "38"),
+        ("   Appendix B: Database Table Definitions", "38"),
+        ("   Appendix C: Environment Configuration Example", "39"),
+        ("   Appendix D: Core Pipeline Implementation Excerpts", "39"),
     ]
 
     tbl_toc = doc.add_table(rows=len(toc_items), cols=2)
     tbl_toc.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl_toc.columns[0].width = Inches(5.8)
+    tbl_toc.columns[1].width = Inches(0.7)
     for idx, (title, page) in enumerate(toc_items):
         row = tbl_toc.rows[idx]
         c0, c1 = row.cells[0], row.cells[1]
+        c0.width = Inches(5.8)
+        c1.width = Inches(0.7)
         set_cell_background(c0, "FFFFFF")
         set_cell_background(c1, "FFFFFF")
         set_cell_margins(c0, top=40, bottom=40, left=40, right=40)
@@ -516,14 +667,14 @@ def build_thesis_document():
     h_lof = doc.add_heading("List of Figures", level=2)
     h_lof.runs[0].font.color.rgb = COLOR_PRIMARY
     figures = [
-        ("Figure 4.1: High-Level System Architecture and Multi-Tier Component Topology", "21"),
-        ("Figure 4.2: Relational Database Entity-Relationship (ER) Diagram", "24"),
-        ("Figure 4.3: End-to-End Prediction, Persistence, and SHAP Sequence Diagram", "25"),
-        ("Figure 5.1: Leakage-Free Preprocessing and Cross-Validation Flowchart", "31"),
-        ("Figure 5.2: Client Dashboard Assessment Form and Radial Risk Gauge Interface", "37"),
-        ("Figure 7.1: Receiver Operating Characteristic (ROC) Curve on Untouched Test Set", "53"),
-        ("Figure 7.2: Global SHAP Feature Importance Ranking Across Benchmark Cohort", "55"),
-        ("Figure 7.3: Local Directional Waterfall SHAP Attribution for High-Risk Case Study", "56"),
+        ("Figure 4.1: High-Level System Architecture and Multi-Tier Component Topology", "19"),
+        ("Figure 4.2: Relational Database Entity-Relationship (ER) Architecture", "20"),
+        ("Figure 4.3: End-to-End Prediction, Persistence, and SHAP Sequence Dynamics", "19"),
+        ("Figure 5.1: Leakage-Free Preprocessing and Cross-Validation Pipeline", "25"),
+        ("Figure 5.2: Client Dashboard Assessment Form and Radial Risk Gauge Interface", "26"),
+        ("Figure 7.1: Receiver Operating Characteristic (ROC) Curve on Untouched Test Set", "32"),
+        ("Figure 7.2: Global SHAP Feature Importance Ranking Across Benchmark Cohort", "32"),
+        ("Figure 7.3: Local Directional Waterfall SHAP Attribution for High-Risk Case Study", "33"),
     ]
     for fig_title, fig_pg in figures:
         p = doc.add_paragraph()
@@ -543,16 +694,16 @@ def build_thesis_document():
     h_lot = doc.add_heading("List of Tables", level=2)
     h_lot.runs[0].font.color.rgb = COLOR_PRIMARY
     tables = [
-        ("Table 2.1: Canonical 14-Attribute Clinical Data Dictionary (Cleveland Cohort)", "9"),
+        ("Table 2.1: Canonical 14-Attribute Clinical Data Dictionary (Cleveland Cohort)", "11"),
         ("Table 3.1: Formal Functional Requirements Specification (FR-1 through FR-8)", "16"),
         ("Table 3.2: Formal Non-Functional Requirements Specification (NFR-1 through NFR-6)", "17"),
-        ("Table 4.1: Database Schema Specification for prediction_records Table", "24"),
-        ("Table 4.2: Comprehensive REST API Endpoint Specification and Routing Matrix", "26"),
-        ("Table 5.1: Pinned Production Software Stack and Development Toolchain", "29"),
-        ("Table 6.1: Automated Test Suite Structure, Categorization, and Execution Results", "46"),
-        ("Table 7.1: Stratified 5-Fold Cross-Validation Performance Comparison Across 7 Algorithms", "51"),
-        ("Table 7.2: Final Evaluation Performance Metrics on Untouched Test Set (N = 61)", "53"),
-        ("Table 7.3: Top 10 Global Clinical Predictive Factors Identified by SHAP", "55"),
+        ("Table 4.1: Database Schema Specification for prediction_records Table", "20"),
+        ("Table 4.2: Comprehensive REST API Endpoint Specification and Routing Matrix", "21"),
+        ("Table 5.1: Pinned Production Software Stack and Development Toolchain", "23"),
+        ("Table 6.1: Automated Test Suite Structure, Categorization, and Execution Results", "28"),
+        ("Table 7.1: Stratified 5-Fold Cross-Validation Performance Comparison Across 7 Algorithms", "31"),
+        ("Table 7.2: Final Evaluation Performance Metrics on Untouched Test Set (N = 61)", "32"),
+        ("Table 7.3: Top 10 Global Clinical Predictive Factors Identified by SHAP", "33"),
     ]
     for tbl_title, tbl_pg in tables:
         p = doc.add_paragraph()
@@ -764,64 +915,155 @@ def build_thesis_document():
         "To rigorously benchmark diverse inductive biases, seven representative machine learning algorithms were selected:",
         bold_prefix="Candidate Model Families: "
     )
+    # 1. Logistic Regression
     add_body_paragraph(
         doc,
-        "1. Logistic Regression (L2-Regularized Linear Baseline):\n"
-        "Models the posterior log-odds as a linear combination of feature inputs using the logistic sigmoid function:\n"
-        "P(Y = 1 | x) = sigma(w^T x + b) = 1 / (1 + exp(-(w^T x + b)))\n"
-        "The model parameters w and b are estimated by minimizing the negative log-likelihood objective with Ridge regularization:\n"
-        "J(w) = - sum_{i=1}^N [y_i ln(p_i) + (1 - y_i) ln(1 - p_i)] + (1 / (2C)) ||w||_2^2\n"
-        "where C > 0 controls regularization inverse strength.",
-        space_after=4
+        "Models the posterior log-odds as a linear combination of clinical feature inputs using the logistic sigmoid function:",
+        bold_prefix="1. Logistic Regression (L2-Regularized Linear Baseline): ",
+        space_after=3
     )
+    eq_lr1 = (
+        o_r("P(Y = 1 | x) = σ(") +
+        o_sSup(o_r("w"), o_r("T")) +
+        o_r("x + b) = ") +
+        o_frac(o_r("1"), o_r("1 + ") + o_sSup(o_r("e"), o_r("-(") + o_sSup(o_r("w"), o_r("T")) + o_r("x + b)")))
+    )
+    add_math_equation(doc, eq_lr1, space_before=3, space_after=4)
     add_body_paragraph(
         doc,
-        "2. K-Nearest Neighbors (KNN - Instance-Based Non-Parametric):\n"
+        "The model parameters w and b are estimated by minimizing the negative log-likelihood objective with Ridge (L2) regularization:",
+        space_after=3
+    )
+    bracket_content = (
+        o_sSub(o_r("y"), o_r("i")) + o_r(" ln(") + o_sSub(o_r("p"), o_r("i")) + o_r(") + (1 - ") +
+        o_sSub(o_r("y"), o_r("i")) + o_r(") ln(1 - ") + o_sSub(o_r("p"), o_r("i")) + o_r(")")
+    )
+    norm_term = o_sSup(o_sSub(o_delim(o_r("w"), beg="‖", end="‖"), o_r("2")), o_r("2"))
+    eq_lr2 = (
+        o_r("J(w) = - ") +
+        o_sum(o_r("i=1"), o_r("N"), o_delim(bracket_content, beg="[", end="]")) +
+        o_r(" + ") +
+        o_frac(o_r("1"), o_r("2C")) +
+        norm_term
+    )
+    add_math_equation(doc, eq_lr2, space_before=3, space_after=4)
+    add_body_paragraph(
+        doc,
+        "where C > 0 controls regularization inverse strength, penalizing excessive model weights on collinear biomarkers.",
+        space_after=6
+    )
+
+    # 2. KNN
+    add_body_paragraph(
+        doc,
         "Assigns patient risk based on majority voting or distance-weighted interpolation among the k closest training instances "
-        "measured in standardized Euclidean feature space:\n"
-        "d(x, x') = sqrt( sum_{j=1}^d (x_j - x'_j)^2 )\n"
-        "P(Y = 1 | x) = (1 / k) sum_{x_i in N_k(x)} y_i",
-        space_after=4
+        "measured in standardized Euclidean feature space:",
+        bold_prefix="2. K-Nearest Neighbors (KNN - Instance-Based Non-Parametric): ",
+        space_after=3
     )
+    diff_term = o_delim(o_sSub(o_r("x"), o_r("j")) + o_r(" - ") + o_sSub(o_r("x\x27"), o_r("j")), beg="(", end=")")
+    sum_term = o_sum(o_r("j=1"), o_r("d"), o_sSup(diff_term, o_r("2")))
+    eq_knn1 = o_r("d(x, x\x27) = ") + o_rad(sum_term)
+    add_math_equation(doc, eq_knn1, space_before=3, space_after=4)
+    eq_knn2 = (
+        o_r("P(Y = 1 | x) = ") +
+        o_frac(o_r("1"), o_r("k")) +
+        o_sum(o_sSub(o_r("x"), o_r("i")) + o_r(" ∈ ") + o_sSub(o_r("N"), o_r("k")) + o_r("(x)"), expr=o_sSub(o_r("y"), o_r("i")))
+    )
+    add_math_equation(doc, eq_knn2, space_before=3, space_after=4)
     add_body_paragraph(
         doc,
-        "3. Decision Tree (Rule-Based Greedy Splitting):\n"
-        "Recursively partitions the feature space into axis-aligned hyper-rectangles by maximizing Gini impurity reduction:\n"
-        "I_Gini(t) = 1 - sum_{c in {0, 1}} p(c | t)^2\n"
-        "Decision trees offer direct rule extraction but are notoriously vulnerable to high variance and training overfitting.",
-        space_after=4
+        "where Nk(x) represents the set of k nearest training instances in normalized Euclidean metric space.",
+        space_after=6
     )
+
+    # 3. Decision Tree
     add_body_paragraph(
         doc,
-        "4. Random Forest (Bagging Ensemble of Decorrelated Trees):\n"
+        "Recursively partitions the feature space into axis-aligned hyper-rectangles by maximizing Gini impurity reduction at each candidate node t:",
+        bold_prefix="3. Decision Tree (Rule-Based Greedy Splitting): ",
+        space_after=3
+    )
+    eq_dt = (
+        o_sSub(o_r("I"), o_r("Gini")) + o_r("(t) = 1 - ") +
+        o_sum(o_r("c ∈ {0, 1}"), expr=o_sSup(o_r("p(c | t)"), o_r("2")))
+    )
+    add_math_equation(doc, eq_dt, space_before=3, space_after=4)
+    add_body_paragraph(
+        doc,
+        "Decision trees offer direct rule extraction but are notoriously vulnerable to high variance and training overfitting on modest sample cohorts.",
+        space_after=6
+    )
+
+    # 4. Random Forest
+    add_body_paragraph(
+        doc,
         "Constructs B bootstrap aggregate decision trees trained on random feature subsets (mtry = sqrt(d)). The ensemble probability "
-        "is the unweighted mean of individual tree posteriors:\n"
-        "P(Y = 1 | x) = (1 / B) sum_{b=1}^B T_b(x)\n"
+        "is the unweighted mean of individual tree posteriors:",
+        bold_prefix="4. Random Forest (Bagging Ensemble of Decorrelated Trees): ",
+        space_after=3
+    )
+    eq_rf = (
+        o_r("P(Y = 1 | x) = ") +
+        o_frac(o_r("1"), o_r("B")) +
+        o_sum(o_r("b=1"), o_r("B"), o_sSub(o_r("T"), o_r("b")) + o_r("(x)"))
+    )
+    add_math_equation(doc, eq_rf, space_before=3, space_after=4)
+    add_body_paragraph(
+        doc,
         "This substantially suppresses individual tree variance without inducing additional bias.",
-        space_after=4
+        space_after=6
     )
+
+    # 5. Support Vector Machine
     add_body_paragraph(
         doc,
-        "5. Support Vector Machine (SVM - Maximum-Margin Kernel Classification):\n"
         "Determines an optimal separating hyperplane that maximizes the geometric margin 2 / ||w|| between classes. Non-linear relationships "
-        "are projected into infinite-dimensional Hilbert spaces using the Radial Basis Function (RBF) kernel:\n"
-        "K(x, x') = exp(- gamma ||x - x'||^2)\n"
-        "Posterior probabilities are derived via Platt scaling (calibrating a sigmoid on SVM decision values).",
-        space_after=4
+        "are projected into infinite-dimensional Hilbert spaces using the Radial Basis Function (RBF) kernel:",
+        bold_prefix="5. Support Vector Machine (SVM - Maximum-Margin Kernel Classification): ",
+        space_after=3
     )
+    norm_diff = o_sSup(o_delim(o_r("x - x\x27"), beg="‖", end="‖"), o_r("2"))
+    eq_svm = o_r("K(x, x\x27) = exp(-γ ") + norm_diff + o_r(")")
+    add_math_equation(doc, eq_svm, space_before=3, space_after=4)
     add_body_paragraph(
         doc,
-        "6. AdaBoost (Adaptive Sequential Boosting):\n"
+        "Posterior probabilities are derived via Platt scaling (calibrating a sigmoid on SVM decision boundary values).",
+        space_after=6
+    )
+
+    # 6. AdaBoost
+    add_body_paragraph(
+        doc,
         "Sequentially builds an ensemble of weak base estimators (depth-1 decision stumps), assigning elevated sample weights to instances "
-        "misclassified by preceding iterations and combining predictions via stage-wise additive modeling.",
-        space_after=4
+        "misclassified by preceding iterations and combining predictions via stage-wise additive modeling:",
+        bold_prefix="6. AdaBoost (Adaptive Sequential Boosting): ",
+        space_after=3
     )
+    ada_sum = o_sum(o_r("m=1"), o_r("M"), o_sSub(o_r("α"), o_r("m")) + o_sSub(o_r("h"), o_r("m")) + o_r("(x)"))
+    ada_alpha = o_sSub(o_r("α"), o_r("m")) + o_r(" = ") + o_frac(o_r("1"), o_r("2")) + o_r(" ln") + o_delim(o_frac(o_r("1 - ") + o_sSub(o_r("ε"), o_r("m")), o_sSub(o_r("ε"), o_r("m"))))
+    eq_ada = o_r("H(x) = sign") + o_delim(ada_sum, beg="(", end=")") + o_r(",      ") + ada_alpha
+    add_math_equation(doc, eq_ada, space_before=3, space_after=4)
     add_body_paragraph(
         doc,
-        "7. Gradient Boosted Decision Trees (GBDT - Functional Gradient Descent):\n"
+        "where εm denotes the weighted error rate of the m-th weak hypothesis hm(x) and αm represents its diagnostic voting weight.",
+        space_after=6
+    )
+
+    # 7. Gradient Boosted Decision Trees
+    add_body_paragraph(
+        doc,
         "Iteratively optimizes arbitrary differentiable loss functions (binary cross-entropy) by fitting subsequent regression trees "
-        "to pseudo-residuals (negative gradients) of previous iterations:\n"
-        "r_{im} = - [ partial L(y_i, F_{m-1}(x_i)) / partial F_{m-1}(x_i) ]\n"
+        "to pseudo-residuals (negative gradients) of previous iterations:",
+        bold_prefix="7. Gradient Boosted Decision Trees (GBDT - Functional Gradient Descent): ",
+        space_after=3
+    )
+    gbdt_num = o_r("∂L(") + o_sSub(o_r("y"), o_r("i")) + o_r(", ") + o_sSub(o_r("F"), o_r("m-1")) + o_r("(") + o_sSub(o_r("x"), o_r("i")) + o_r("))")
+    gbdt_den = o_r("∂") + o_sSub(o_r("F"), o_r("m-1")) + o_r("(") + o_sSub(o_r("x"), o_r("i")) + o_r(")")
+    eq_gbdt = o_sSub(o_r("r"), o_r("im")) + o_r(" = - ") + o_delim(o_frac(gbdt_num, gbdt_den), beg="[", end="]")
+    add_math_equation(doc, eq_gbdt, space_before=3, space_after=4)
+    add_body_paragraph(
+        doc,
         "Gradient boosting represents a premier benchmark for structured tabular data analysis.",
         space_after=6
     )
@@ -837,9 +1079,21 @@ def build_thesis_document():
     add_body_paragraph(
         doc,
         "To provide rigorous, mathematically axiomatic model interpretability, this system implements SHapley Additive exPlanations (SHAP) "
-        "developed by Lundberg and Lee (2017). Based on cooperative game theory, the Shapley value phi_i allocates the marginal contribution "
-        "of feature i across all possible feature subsets S subseteq N \\ {i}:\n"
-        "phi_i(v) = sum_{S subseteq N \\ {i}} [ (|S|! (|N| - |S| - 1)!) / |N|! ] * [ v(S union {i}) - v(S) ]\n"
+        "developed by Lundberg and Lee (2017). Based on cooperative game theory, the Shapley value φi allocates the marginal contribution "
+        "of feature i across all possible feature subsets S ⊆ N \\ {i}:",
+        space_after=3
+    )
+    shap_num = o_delim(o_r("S"), beg="|", end="|") + o_r("! ") + o_delim(o_delim(o_r("N"), beg="|", end="|") + o_r(" - ") + o_delim(o_r("S"), beg="|", end="|") + o_r(" - 1"), beg="(", end=")") + o_r("!")
+    shap_den = o_delim(o_r("N"), beg="|", end="|") + o_r("!")
+    shap_weight = o_frac(shap_num, shap_den)
+    shap_diff = o_delim(o_r("v(S ∪ {i}) - v(S)"), beg="[", end="]")
+    eq_shap = (
+        o_sSub(o_r("φ"), o_r("i")) + o_r("(v) = ") +
+        o_sum(o_r("S ⊆ N \\ {i}"), expr=shap_weight + o_r(" ") + shap_diff)
+    )
+    add_math_equation(doc, eq_shap, space_before=3, space_after=4)
+    add_body_paragraph(
+        doc,
         "where v(S) is the characteristic model prediction function evaluated on subset S. Shapley values are uniquely proven to satisfy "
         "four essential axiomatic properties: Efficiency (the sum of feature attributions equals the difference between model output and expected baseline), "
         "Symmetry (features with identical marginal contributions receive identical attributions), Dummy (features with zero marginal impact receive zero attribution), "
@@ -1010,13 +1264,14 @@ def build_thesis_document():
     add_custom_heading(doc, "4.3 End-to-End Data Flow Dynamics", level=2)
     add_body_paragraph(
         doc,
-        "During live inference, data traverses the architecture through five synchronous stages:\n"
-        "1. Ingestion & Validation: The client submits a JSON payload to POST /api/v1/predict. FastAPI intercepts the request and validates all 13 fields against PatientInputSchema constraints. If invalid, a 422 error is returned immediately.\n"
-        "2. Pipeline Execution: PredictionService passes the validated feature dictionary to PredictionEngine. The engine constructs a 1-row DataFrame and feeds it to the preloaded scikit-learn pipeline. The pipeline imputes missing cells, applies standard scaling, executes one-hot encoding, and calculates predict_proba().\n"
-        "3. Risk Tiering: The predicted probability p is categorized into clinical tiers: Low Risk (p < 0.35), Moderate Risk (0.35 <= p < 0.65), or High Risk (p >= 0.65).\n"
-        "4. Local SHAP Attribution: ModelExplainer calculates directional Shapley values for the patient instance, mapping encoded columns back to user-friendly clinical factors.\n"
-        "5. Persistence & Delivery: PredictionRepository creates an immutable PredictionRecord in the SQL database. The API returns a structured PredictionResponseSchema to the client, which updates the radial gauge and SHAP waterfall chart."
+        "During live inference, data traverses the architecture through five synchronous stages:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Ingestion & Validation:", "The client submits a JSON payload to POST /api/v1/predict. FastAPI intercepts the request and validates all 13 fields against PatientInputSchema constraints. If invalid, a 422 error is returned immediately.")
+    add_numbered_item(doc, "2.", "Pipeline Execution:", "PredictionService passes the validated feature dictionary to PredictionEngine. The engine constructs a 1-row DataFrame and feeds it to the preloaded scikit-learn pipeline. The pipeline imputes missing cells, applies standard scaling, executes one-hot encoding, and calculates predict_proba().")
+    add_numbered_item(doc, "3.", "Risk Tiering:", "The predicted probability p is categorized into clinical tiers: Low Risk (p < 0.35), Moderate Risk (0.35 <= p < 0.65), or High Risk (p >= 0.65).")
+    add_numbered_item(doc, "4.", "Local SHAP Attribution:", "ModelExplainer calculates directional Shapley values for the patient instance, mapping encoded columns back to user-friendly clinical factors.")
+    add_numbered_item(doc, "5.", "Persistence & Delivery:", "PredictionRepository creates an immutable PredictionRecord in the SQL database. The API returns a structured PredictionResponseSchema to the client, which updates the radial gauge and SHAP waterfall chart.", space_after=6)
 
     add_custom_heading(doc, "4.4 Database Design and Entity Relationships", level=2)
     add_body_paragraph(
@@ -1093,20 +1348,22 @@ def build_thesis_document():
     add_custom_heading(doc, "4.6 Security and Ethical Privacy Safeguards", level=2)
     add_body_paragraph(
         doc,
-        "Although engineered as a research platform, privacy and defensive engineering principles were rigorously enforced:\n"
-        "1. Zero Protected Health Information (PHI): The system never collects, stores, or transmits patient names, addresses, Social Security numbers, or national identifiers. Only anonymized physiological vectors are processed.\n"
-        "2. Input Sanitization & Type Coercion: Pydantic v2 strictly enforces numerical types, rejecting SQL injection strings or malformed payloads before execution reaches the database or inference engine.\n"
-        "3. Explicit Medical Disclaimers: Every API response and UI view prominently includes the academic disclaimer declaring that predictions represent statistical estimates and are not certified clinical diagnoses."
+        "Although engineered as a research platform, privacy and defensive engineering principles were rigorously enforced:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Zero Protected Health Information (PHI):", "The system never collects, stores, or transmits patient names, addresses, Social Security numbers, or national identifiers. Only anonymized physiological vectors are processed.")
+    add_numbered_item(doc, "2.", "Input Sanitization & Type Coercion:", "Pydantic v2 strictly enforces numerical types, rejecting SQL injection strings or malformed payloads before execution reaches the database or inference engine.")
+    add_numbered_item(doc, "3.", "Explicit Medical Disclaimers:", "Every API response and UI view prominently includes the academic disclaimer declaring that predictions represent statistical estimates and are not certified clinical diagnoses.", space_after=6)
 
     add_custom_heading(doc, "4.7 Architectural Design Decisions and Trade-Off Analysis", level=2)
     add_body_paragraph(
         doc,
-        "Critical architectural trade-offs evaluated during system design included:\n"
-        "1. Preloaded Singleton vs. On-Demand Retraining: The trained pipeline is loaded once into memory during the FastAPI lifespan startup event. This eliminates redundant disk I/O and deserialization latency, achieving sub-10ms raw inference speeds.\n"
-        "2. Single Deployable Pipeline Artifact: Merging ColumnTransformer preprocessing and the tuned classifier into a single joblib artifact guarantees that identical scaling and imputation logic applies during training and live inference, eliminating train-serve skew.\n"
-        "3. Dual Database Dialect Architecture: Leveraging SQLAlchemy allows developers to execute tests instantly against an in-memory SQLite database while enabling seamless containerized deployment against PostgreSQL without modifying code."
+        "Critical architectural trade-offs evaluated during system design included:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Preloaded Singleton vs. On-Demand Retraining:", "The trained pipeline is loaded once into memory during the FastAPI lifespan startup event. This eliminates redundant disk I/O and deserialization latency, achieving sub-10ms raw inference speeds.")
+    add_numbered_item(doc, "2.", "Single Deployable Pipeline Artifact:", "Merging ColumnTransformer preprocessing and the tuned classifier into a single joblib artifact guarantees that identical scaling and imputation logic applies during training and live inference, eliminating train-serve skew.")
+    add_numbered_item(doc, "3.", "Dual Database Dialect Architecture:", "Leveraging SQLAlchemy allows developers to execute tests instantly against an in-memory SQLite database while enabling seamless containerized deployment against PostgreSQL without modifying code.", space_after=6)
 
     doc.add_page_break()
 
@@ -1321,46 +1578,50 @@ def build_thesis_document():
     add_custom_heading(doc, "6.2 Preprocessing and Data Pipeline Unit Tests", level=2)
     add_body_paragraph(
         doc,
-        "Implemented in tests/test_preprocessing.py, five automated unit tests verify:\n"
-        "1. Dataset Ingestion (test_load_raw_dataset): Confirms 303 rows, 14 columns, and valid binary target binarization.\n"
-        "2. Structural Validation (test_validate_dataset): Asserts 164 negative cases, 139 positive cases, 0 duplicates, and exact missingness (ca: 4, thal: 2).\n"
-        "3. Strict Data Leakage Prevention (test_train_test_split_no_leakage): Proves disjoint index intersection between train (242) and test (61) splits.\n"
-        "4. Preprocessing Pipeline Transformation (test_preprocessor_pipeline_transformation): Asserts zero NaN values remain post-transformation and confirms 25 output columns.\n"
-        "5. Clinical Feature Engineering (test_clinical_feature_engineer): Asserts accurate derivation of hr_max_ratio, bp_chol_product, and ischemia indices."
+        "Implemented in tests/test_preprocessing.py, five automated unit tests verify:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Dataset Ingestion (test_load_raw_dataset):", "Confirms 303 rows, 14 columns, and valid binary target binarization.")
+    add_numbered_item(doc, "2.", "Structural Validation (test_validate_dataset):", "Asserts 164 negative cases, 139 positive cases, 0 duplicates, and exact missingness (ca: 4, thal: 2).")
+    add_numbered_item(doc, "3.", "Strict Data Leakage Prevention (test_train_test_split_no_leakage):", "Proves disjoint index intersection between train (242) and test (61) splits.")
+    add_numbered_item(doc, "4.", "Preprocessing Pipeline Transformation (test_preprocessor_pipeline_transformation):", "Asserts zero NaN values remain post-transformation and confirms 25 output columns.")
+    add_numbered_item(doc, "5.", "Clinical Feature Engineering (test_clinical_feature_engineer):", "Asserts accurate derivation of hr_max_ratio, bp_chol_product, and ischemia indices.", space_after=6)
 
     add_custom_heading(doc, "6.3 Machine Learning and SHAP Explainer Tests", level=2)
     add_body_paragraph(
         doc,
-        "Implemented in tests/test_models.py, five unit tests verify:\n"
-        "1. Pipeline Artifact Loading (test_pipeline_artifact_exists_and_loads): Confirms deserialization of best_model.joblib with preprocessor and classifier steps.\n"
-        "2. Metadata Completeness (test_metadata_completeness): Confirms presence of all 7 algorithms in model_comparison, test metrics, and ROC coordinates.\n"
-        "3. Evaluation Metrics Calculation (test_compute_classification_metrics): Verifies mathematical accuracy of sensitivity, specificity, and confusion matrix.\n"
-        "4. Patient Inference Engine (test_prediction_engine_patient_inference): Tests mock low-risk and high-risk patients, proving probability bounds and risk tier assignment.\n"
-        "5. SHAP Explainer Functionality (test_model_explainer_global_and_local): Validates global importance calculation and local attribution extraction."
+        "Implemented in tests/test_models.py, five unit tests verify:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Pipeline Artifact Loading (test_pipeline_artifact_exists_and_loads):", "Confirms deserialization of best_model.joblib with preprocessor and classifier steps.")
+    add_numbered_item(doc, "2.", "Metadata Completeness (test_metadata_completeness):", "Confirms presence of all 7 algorithms in model_comparison, test metrics, and ROC coordinates.")
+    add_numbered_item(doc, "3.", "Evaluation Metrics Calculation (test_compute_classification_metrics):", "Verifies mathematical accuracy of sensitivity, specificity, and confusion matrix.")
+    add_numbered_item(doc, "4.", "Patient Inference Engine (test_prediction_engine_patient_inference):", "Tests mock low-risk and high-risk patients, proving probability bounds and risk tier assignment.")
+    add_numbered_item(doc, "5.", "SHAP Explainer Functionality (test_model_explainer_global_and_local):", "Validates global importance calculation and local attribution extraction.", space_after=6)
 
     add_custom_heading(doc, "6.4 Database and Repository Unit Tests", level=2)
     add_body_paragraph(
         doc,
-        "Implemented in tests/test_database.py using an isolated in-memory SQLite database, three tests verify:\n"
-        "1. Record Creation & Retrieval (test_create_and_retrieve_prediction): Confirms accurate persistence of patient vitals and JSON SHAP attributions.\n"
-        "2. History Pagination & Filtering (test_get_history_and_filtering): Validates filtering by risk tier (Low Risk vs High Risk).\n"
-        "3. Record Deletion & Statistics (test_delete_prediction_and_stats): Asserts accurate deletion and aggregate summary calculations."
+        "Implemented in tests/test_database.py using an isolated in-memory SQLite database, three tests verify:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Record Creation & Retrieval (test_create_and_retrieve_prediction):", "Confirms accurate persistence of patient vitals and JSON SHAP attributions.")
+    add_numbered_item(doc, "2.", "History Pagination & Filtering (test_get_history_and_filtering):", "Validates filtering by risk tier (Low Risk vs High Risk).")
+    add_numbered_item(doc, "3.", "Record Deletion & Statistics (test_delete_prediction_and_stats):", "Asserts accurate deletion and aggregate summary calculations.", space_after=6)
 
     add_custom_heading(doc, "6.5 API Functional and Boundary Validation Tests", level=2)
     add_body_paragraph(
         doc,
-        "Implemented in tests/test_api.py, seven functional tests verify:\n"
-        "1. Healthcheck Endpoint (test_health_endpoint): Confirms 200 OK with model_loaded=True.\n"
-        "2. Dashboard Template Rendering (test_index_dashboard_view): Asserts complete HTML5 dashboard delivery.\n"
-        "3. Valid Patient Prediction (test_predict_patient_valid): Validates successful prediction, probability, tier, and database ID generation.\n"
-        "4. Boundary & Constraint Enforcement (test_predict_patient_invalid_ranges): Confirms 422 Unprocessable Entity when age > 120 or blood pressure is negative.\n"
-        "5. Batch Prediction (test_batch_prediction): Asserts concurrent evaluation of multiple patient vectors.\n"
-        "6. History Audit & CSV Export (test_history_flow_and_export): Verifies record creation, history lookup, streaming CSV download, and deletion.\n"
-        "7. Research Analytics Endpoints (test_analytics_endpoints): Confirms model metadata, 7-algorithm comparison, and curve data retrieval."
+        "Implemented in tests/test_api.py, seven functional tests verify:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Healthcheck Endpoint (test_health_endpoint):", "Confirms 200 OK with model_loaded=True.")
+    add_numbered_item(doc, "2.", "Dashboard Template Rendering (test_index_dashboard_view):", "Asserts complete HTML5 dashboard delivery.")
+    add_numbered_item(doc, "3.", "Valid Patient Prediction (test_predict_patient_valid):", "Validates successful prediction, probability, tier, and database ID generation.")
+    add_numbered_item(doc, "4.", "Boundary & Constraint Enforcement (test_predict_patient_invalid_ranges):", "Confirms 422 Unprocessable Entity when age > 120 or blood pressure is negative.")
+    add_numbered_item(doc, "5.", "Batch Prediction (test_batch_prediction):", "Asserts concurrent evaluation of multiple patient vectors.")
+    add_numbered_item(doc, "6.", "History Audit & CSV Export (test_history_flow_and_export):", "Verifies record creation, history lookup, streaming CSV download, and deletion.")
+    add_numbered_item(doc, "7.", "Research Analytics Endpoints (test_analytics_endpoints):", "Confirms model metadata, 7-algorithm comparison, and curve data retrieval.", space_after=6)
 
     add_custom_heading(doc, "6.6 Full End-to-End Integration Workflow Verification", level=2)
     add_body_paragraph(
@@ -1412,41 +1673,51 @@ def build_thesis_document():
     )
     add_body_paragraph(
         doc,
-        "Defect 1: Infinite ROC Threshold JSON Serialization Failure\n"
-        "Symptom: During execution of test_analytics_endpoints, GET /api/v1/analytics/curves threw HTTP 500: "
-        "'ValueError: Out of range float values are not JSON compliant: inf'.\n"
-        "Root Cause Analysis: In scikit-learn's roc_curve(y_true, y_prob), the leading threshold value at index 0 is conventionally "
-        "set to np.inf to ensure that False Positive Rate (FPR) begins at 0.0. While standard in scientific computing, float('inf') "
-        "violates RFC 8259 JSON compliance. When FastAPI's JSONResponse serialized the curve dictionary, Python's json.dumps threw an unhandled exception.\n"
-        "Resolution: In src/models/evaluate.py, compute_roc_curve_data() was refactored with conditional threshold sanitization:\n"
-        "clean_thresholds = [1.0 if np.isinf(x) else round(float(x), 4) for x in thresholds]\n"
-        "This sanitized the coordinate vectors while maintaining complete plotting fidelity.",
-        space_after=4
+        "During execution of test_analytics_endpoints, GET /api/v1/analytics/curves threw HTTP 500: 'ValueError: Out of range float values are not JSON compliant: inf'.",
+        bold_prefix="Defect 1 — Symptom: ",
+        space_after=3
     )
     add_body_paragraph(
         doc,
-        "Defect 2: SQLite In-Memory Test Isolation and Connection Leakage\n"
-        "Symptom: When executing the entire test suite simultaneously, test_history_flow_and_export failed with "
-        "'AssertionError: assert 4 == 1', despite passing when executed in isolation.\n"
-        "Root Cause Analysis: By default, SQLite in-memory databases (sqlite:///:memory:) create a new, distinct in-memory database "
-        "for every open connection. Additionally, both test_api.py and test_integration.py independently assigned different database "
-        "engines to app.dependency_overrides[get_db] at module import time. Consequently, records created by earlier tests persisted "
-        "across shared test runs without being purged.\n"
-        "Resolution: Refactored test architecture into tests/conftest.py utilizing SQLAlchemy's StaticPool:\n"
-        "engine = create_engine('sqlite:///:memory:', connect_args={'check_same_thread': False}, poolclass=StaticPool)\n"
-        "A centralized autouse clean_db fixture was implemented to explicitly issue DELETE statements on all tables before each test, "
-        "restoring absolute state isolation and eliminating cross-test interference.",
+        "In scikit-learn's roc_curve(y_true, y_prob), the leading threshold value at index 0 is conventionally set to np.inf to ensure that False Positive Rate (FPR) begins at 0.0. While standard in scientific computing, float('inf') violates RFC 8259 JSON compliance. When FastAPI's JSONResponse serialized the curve dictionary, Python's json.dumps threw an unhandled exception.",
+        bold_prefix="Root Cause Analysis: ",
+        space_after=3
+    )
+    add_body_paragraph(
+        doc,
+        "In src/models/evaluate.py, compute_roc_curve_data() was refactored with conditional threshold sanitization: clean_thresholds = [1.0 if np.isinf(x) else round(float(x), 4) for x in thresholds]. This sanitized the coordinate vectors while maintaining complete plotting fidelity.",
+        bold_prefix="Resolution: ",
+        space_after=6
+    )
+
+    add_body_paragraph(
+        doc,
+        "When executing the entire test suite simultaneously, test_history_flow_and_export failed with 'AssertionError: assert 4 == 1', despite passing when executed in isolation.",
+        bold_prefix="Defect 2 — Symptom: ",
+        space_after=3
+    )
+    add_body_paragraph(
+        doc,
+        "By default, SQLite in-memory databases (sqlite:///:memory:) create a new, distinct in-memory database for every open connection. Additionally, both test_api.py and test_integration.py independently assigned different database engines to app.dependency_overrides[get_db] at module import time. Consequently, records created by earlier tests persisted across shared test runs without being purged.",
+        bold_prefix="Root Cause Analysis: ",
+        space_after=3
+    )
+    add_body_paragraph(
+        doc,
+        "Refactored test architecture into tests/conftest.py utilizing SQLAlchemy's StaticPool: engine = create_engine('sqlite:///:memory:', connect_args={'check_same_thread': False}, poolclass=StaticPool). A centralized autouse clean_db fixture was implemented to explicitly issue DELETE statements on all tables before each test, restoring absolute state isolation and eliminating cross-test interference.",
+        bold_prefix="Resolution: ",
         space_after=6
     )
 
     add_custom_heading(doc, "6.9 Codebase Refactoring and Maintainability Enhancements", level=2)
     add_body_paragraph(
         doc,
-        "Following test verification, three key refactoring iterations were performed:\n"
-        "1. Centralized Conftest Fixtures: Consolidated duplicate database engines and test clients into a single, standardized fixture hierarchy.\n"
-        "2. TemplateResponse Modernization: Updated FastAPI/Starlette template rendering to use keyword arguments (request=request, name='index.html'), preventing unhashable dictionary errors under modern Starlette releases.\n"
-        "3. Decoupled Explainer Fallbacks: Implemented defensive exception handling inside ModelExplainer to guarantee that if SHAP encounters an unsupported estimator, standard permutation importances or coefficient weights are returned seamlessly without crashing API inference."
+        "Following test verification, three key refactoring iterations were performed:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Centralized Conftest Fixtures:", "Consolidated duplicate database engines and test clients into a single, standardized fixture hierarchy.")
+    add_numbered_item(doc, "2.", "TemplateResponse Modernization:", "Updated FastAPI/Starlette template rendering to use keyword arguments (request=request, name='index.html'), preventing unhashable dictionary errors under modern Starlette releases.")
+    add_numbered_item(doc, "3.", "Decoupled Explainer Fallbacks:", "Implemented defensive exception handling inside ModelExplainer to guarantee that if SHAP encounters an unsupported estimator, standard permutation importances or coefficient weights are returned seamlessly without crashing API inference.", space_after=6)
 
     doc.add_page_break()
 
@@ -1535,12 +1806,17 @@ def build_thesis_document():
 
     add_body_paragraph(
         doc,
-        "The resulting test set confusion matrix demonstrates an exceptionally favorable clinical screening distribution:\n"
-        "• True Negatives (TN): 28 patients correctly classified as free of significant CAD.\n"
-        "• False Positives (FP): 5 healthy patients flagged for secondary evaluation.\n"
-        "• False Negatives (FN): Only 2 cardiac patients were missed.\n"
-        "• True Positives (TP): 26 cardiac patients correctly detected.\n"
-        "In clinical triage, an outcome of only 2 false negatives out of 28 true diseased patients represents an outstanding sensitivity rate (92.86%)."
+        "The resulting test set confusion matrix demonstrates an exceptionally favorable clinical screening distribution:",
+        space_after=4
+    )
+    add_bullet_point(doc, "True Negatives (TN): ", "28 patients correctly classified as free of significant CAD.")
+    add_bullet_point(doc, "False Positives (FP): ", "5 healthy patients flagged for secondary evaluation.")
+    add_bullet_point(doc, "False Negatives (FN): ", "Only 2 cardiac patients were missed.")
+    add_bullet_point(doc, "True Positives (TP): ", "26 cardiac patients correctly detected.")
+    add_body_paragraph(
+        doc,
+        "In clinical triage, an outcome of only 2 false negatives out of 28 true diseased patients represents an outstanding sensitivity rate (92.86%).",
+        space_after=6
     )
 
     add_custom_heading(doc, "7.4 Global and Local Interpretability Findings", level=2)
@@ -1584,11 +1860,12 @@ def build_thesis_document():
         doc,
         "A compelling scientific finding of this thesis is that tuned, regularized Logistic Regression outperformed sophisticated "
         "ensemble methods (Random Forest ROC-AUC 0.8858, Gradient Boosting ROC-AUC 0.8555, Decision Tree ROC-AUC 0.7001). "
-        "This outcome is thoroughly explained by the classic statistical bias-variance trade-off in small tabular sample regimes (N = 303):\n"
-        "1. Parameter Parsimony vs. Overfitting: Complex tree-based ensembles feature thousands of splitting parameters, easily overfitting spurious local variances in small clinical sample spaces.\n"
-        "2. Additive Physiological Nature of Biomarkers: In cardiovascular screening, risk factors (such as age, blood pressure, cholesterol, and vessel counts) exhibit predominantly monotonic, additive risk relationships well-captured by log-odds linear hyperplanes.\n"
-        "3. Hypothesis Validation: This confirms Hypothesis 1 (ensemble architectures behave differently from linear baselines) and validates Hypothesis 3 (fluoroscopy vessels, ST depression, and heart rate dominate decisions)."
+        "This outcome is thoroughly explained by the classic statistical bias-variance trade-off in small tabular sample regimes (N = 303):",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Parameter Parsimony vs. Overfitting:", "Complex tree-based ensembles feature thousands of splitting parameters, easily overfitting spurious local variances in small clinical sample spaces.")
+    add_numbered_item(doc, "2.", "Additive Physiological Nature of Biomarkers:", "In cardiovascular screening, risk factors (such as age, blood pressure, cholesterol, and vessel counts) exhibit predominantly monotonic, additive risk relationships well-captured by log-odds linear hyperplanes.")
+    add_numbered_item(doc, "3.", "Hypothesis Validation:", "This confirms Hypothesis 1 (ensemble architectures behave differently from linear baselines) and validates Hypothesis 3 (fluoroscopy vessels, ST depression, and heart rate dominate decisions).", space_after=6)
 
     add_custom_heading(doc, "7.6 System Performance, Scalability, and Maintainability", level=2)
     add_body_paragraph(
@@ -1608,27 +1885,31 @@ def build_thesis_document():
     add_custom_heading(doc, "8.1 Dataset and Demographic Limitations", level=2)
     add_body_paragraph(
         doc,
-        "While the Cleveland dataset represents a revered benchmark in computational cardiology, several inherent limitations must be acknowledged:\n"
-        "1. Modest Sample Size: The cohort contains 303 observations. While sufficient for statistical benchmarking, training large-scale architectures requires cohorts numbering in the tens of thousands.\n"
-        "2. Demographic Skew: The sample features 68% male participants, reflecting historical patient selection biases from the 1980s.\n"
-        "3. Evolving Biomarkers: Contemporary cardiology utilizes novel diagnostic assays (high-sensitivity Cardiac Troponin T/I, Coronary Artery Calcium scoring) that were unavailable when the benchmark was collected."
+        "While the Cleveland dataset represents a revered benchmark in computational cardiology, several inherent limitations must be acknowledged:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Modest Sample Size:", "The cohort contains 303 observations. While sufficient for statistical benchmarking, training large-scale architectures requires cohorts numbering in the tens of thousands.")
+    add_numbered_item(doc, "2.", "Demographic Skew:", "The sample features 68% male participants, reflecting historical patient selection biases from the 1980s.")
+    add_numbered_item(doc, "3.", "Evolving Biomarkers:", "Contemporary cardiology utilizes novel diagnostic assays (high-sensitivity Cardiac Troponin T/I, Coronary Artery Calcium scoring) that were unavailable when the benchmark was collected.", space_after=6)
 
     add_custom_heading(doc, "8.2 Algorithmic and Experimental Constraints", level=2)
     add_body_paragraph(
         doc,
-        "1. Static Thresholding: Risk tiers are categorized based on standard heuristic boundaries (0.35 and 0.65). Dynamic cost-sensitive threshold tuning could further optimize false-positive trade-offs.\n"
-        "2. Single-Center Validation: The model has not yet been validated on multi-center external cohorts (such as the Hungarian or Long Beach datasets) to verify cross-institutional domain adaptation."
+        "Key methodological and operational constraints of the current modeling pipeline include:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Static Thresholding:", "Risk tiers are categorized based on standard heuristic boundaries (0.35 and 0.65). Dynamic cost-sensitive threshold tuning could further optimize false-positive trade-offs.")
+    add_numbered_item(doc, "2.", "Single-Center Validation:", "The model has not yet been validated on multi-center external cohorts (such as the Hungarian or Long Beach datasets) to verify cross-institutional domain adaptation.", space_after=6)
 
     add_custom_heading(doc, "8.3 Future Architectural and Clinical Roadmap", level=2)
     add_body_paragraph(
         doc,
-        "Future research and engineering extensions planned for the system include:\n"
-        "1. Federated Multi-Center Learning: Implementing federated learning protocols enabling disparate medical centers to collaboratively train predictive pipelines without sharing raw patient records.\n"
-        "2. HL7 / FHIR Clinical Interoperability: Integrating Fast Healthcare Interoperability Resources (FHIR) JSON endpoints to enable seamless data exchange with Electronic Health Record (EHR) systems.\n"
-        "3. Probability Calibration Enhancement: Incorporating isotonic regression and Platt scaling calibration curves evaluated via Brier score minimization."
+        "Future research and engineering extensions planned for the system include:",
+        space_after=4
     )
+    add_numbered_item(doc, "1.", "Federated Multi-Center Learning:", "Implementing federated learning protocols enabling disparate medical centers to collaboratively train predictive pipelines without sharing raw patient records.")
+    add_numbered_item(doc, "2.", "HL7 / FHIR Clinical Interoperability:", "Integrating Fast Healthcare Interoperability Resources (FHIR) JSON endpoints to enable seamless data exchange with Electronic Health Record (EHR) systems.")
+    add_numbered_item(doc, "3.", "Probability Calibration Enhancement:", "Incorporating isotonic regression and Platt scaling calibration curves evaluated via Brier score minimization.", space_after=6)
 
     doc.add_page_break()
 
