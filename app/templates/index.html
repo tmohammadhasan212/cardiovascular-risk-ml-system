@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardiovascular Risk ML System — University of Koblenz</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">🫀</div>
+        <div>
+          <h1>CardioPredict ML</h1>
+          <span>Cardiovascular Risk Prediction & Analysis System</span>
+        </div>
+      </div>
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="assessment-tab">Clinical Assessment</button>
+        <button class="tab-btn" data-tab="history-tab">Prediction History</button>
+        <button class="tab-btn" data-tab="analytics-tab">Research & Analytics</button>
+        <a href="/docs" target="_blank" class="tab-btn" style="text-decoration:none;">API Docs ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Academic & Medical Disclaimer -->
+    <div class="disclaimer-banner">
+      <span style="font-size:1.1rem;">⚠️</span>
+      <div>
+        <strong>Academic Research Prototype:</strong> This software system is developed as an academic bachelor's final thesis prototype (University of Koblenz — M.Sc. Web and Data Science). Predictions are experimental outputs and <strong>must not</strong> be used as medical advice, clinical diagnosis, or patient clearance.
+      </div>
+    </div>
+
+    <!-- TAB 1: Assessment Form & Results -->
+    <section id="assessment-tab" class="tab-panel active">
+      <div class="assessment-grid">
+        
+        <!-- Left: Form Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Patient Clinical Parameters</h2>
+            <div class="quick-fill-bar">
+              <button type="button" class="btn-secondary" id="btn-load-low-risk">Sample: Low Risk</button>
+              <button type="button" class="btn-secondary" id="btn-load-high-risk">Sample: High Risk</button>
+            </div>
+          </div>
+
+          <form id="patient-form">
+            <!-- Section 1: Demographics -->
+            <div class="form-section-title">1. Patient Demographics</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="age">Age <span class="unit">years (20-100)</span></label>
+                <input type="number" id="age" class="form-control" min="18" max="120" value="55" required>
+              </div>
+              <div class="form-group">
+                <label for="sex">Biological Sex</label>
+                <select id="sex" class="form-control" required>
+                  <option value="1">Male</option>
+                  <option value="0">Female</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Section 2: Clinical Vitals & Lab Measurements -->
+            <div class="form-section-title">2. Hemodynamics & Biomarkers</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="trestbps">Resting BP <span class="unit">mm Hg</span></label>
+                <input type="number" id="trestbps" class="form-control" min="60" max="260" value="130" required>
+              </div>
+              <div class="form-group">
+                <label for="chol">Serum Cholesterol <span class="unit">mg/dl</span></label>
+                <input type="number" id="chol" class="form-control" min="80" max="600" value="230" required>
+              </div>
+              <div class="form-group">
+                <label for="fbs">Fasting Blood Sugar</label>
+                <select id="fbs" class="form-control" required>
+                  <option value="0">Normal (≤ 120 mg/dl)</option>
+                  <option value="1">Elevated (&gt; 120 mg/dl)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Section 3: Symptomatology & ECG -->
+            <div class="form-section-title">3. Symptoms & Electrocardiography</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cp">Chest Pain Type</label>
+                <select id="cp" class="form-control" required>
+                  <option value="0">0: Typical Angina</option>
+                  <option value="1">1: Atypical Angina</option>
+                  <option value="2">2: Non-Anginal Pain</option>
+                  <option value="3">3: Asymptomatic</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="restecg">Resting ECG</label>
+                <select id="restecg" class="form-control" required>
+                  <option value="0">0: Normal</option>
+                  <option value="1">1: ST-T Wave Abnormality</option>
+                  <option value="2">2: Left Ventricular Hypertrophy</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Section 4: Exercise Stress Test -->
+            <div class="form-section-title">4. Exercise Stress Test Findings</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="thalach">Max Heart Rate <span class="unit">bpm</span></label>
+                <input type="number" id="thalach" class="form-control" min="50" max="250" value="150" required>
+              </div>
+              <div class="form-group">
+                <label for="exang">Exercise Angina</label>
+                <select id="exang" class="form-control" required>
+                  <option value="0">No</option>
+                  <option value="1">Yes</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="oldpeak">ST Depression <span class="unit">mm</span></label>
+                <input type="number" step="0.1" id="oldpeak" class="form-control" min="0" max="10" value="1.0" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="slope">ST Segment Slope</label>
+                <select id="slope" class="form-control" required>
+                  <option value="0">0: Upsloping</option>
+                  <option value="1">1: Flat</option>
+                  <option value="2">2: Downsloping</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="ca">Fluoroscopy Vessels</label>
+                <select id="ca" class="form-control" required>
+                  <option value="0">0 major vessels</option>
+                  <option value="1">1 major vessel</option>
+                  <option value="2">2 major vessels</option>
+                  <option value="3">3 major vessels</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="thal">Thalassemia Scan</label>
+                <select id="thal" class="form-control" required>
+                  <option value="1">1: Normal</option>
+                  <option value="2">2: Fixed Defect</option>
+                  <option value="3">3: Reversible Defect</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-submit-prediction" class="btn-submit">
+              Calculate Cardiovascular Risk
+            </button>
+          </form>
+        </div>
+
+        <!-- Right: Results & Explainability Card -->
+        <div>
+          <div id="prediction-result-card" class="card result-card" style="display:none;">
+            <div class="card-header">
+              <h2 class="card-title">Prediction & Risk Stratification</h2>
+              <span id="result-model-name" style="font-size:0.75rem; color:var(--text-muted);">Pipeline v1.0</span>
+            </div>
+
+            <!-- Radial Gauge -->
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 160 160">
+                <circle class="gauge-bg" cx="80" cy="80" r="65"></circle>
+                <circle id="gauge-progress-bar" class="gauge-progress" cx="80" cy="80" r="65"
+                        stroke-dasharray="408.4" stroke-dashoffset="408.4"></circle>
+              </svg>
+              <div class="gauge-text">
+                <div id="result-percentage" class="gauge-percentage">0%</div>
+                <div class="gauge-label">Risk Probability</div>
+              </div>
+            </div>
+
+            <div>
+              <span id="result-risk-badge" class="risk-badge risk-low">Low Risk</span>
+            </div>
+
+            <!-- Local SHAP Attributions -->
+            <div class="attributions-list">
+              <div style="font-size:0.85rem; font-weight:700; color:var(--secondary); margin-bottom:0.5rem; display:flex; justify-content:space-between;">
+                <span>Explainable AI (Local SHAP Attribution)</span>
+                <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted);">Impact on Risk Score</span>
+              </div>
+              <div id="shap-attributions-list">
+                <!-- Dynamically rendered bars -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Guide Card -->
+          <div class="card">
+            <h3 style="font-size:0.95rem; font-weight:700; color:var(--secondary); margin-bottom:0.5rem;">How Explainable AI Works</h3>
+            <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.5;">
+              This system computes Shapley Additive Explanations (SHAP) for each patient inquiry. Red bars indicate patient attributes that elevate the predicted likelihood of cardiovascular disease, while green bars reflect protective factors that lower the risk relative to baseline population expectations.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: History Tab -->
+    <section id="history-tab" class="tab-panel">
+      <!-- Summary Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Total Assessments</span>
+          <span id="stat-total-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Low Risk Assessments</span>
+          <span id="stat-low-risk" class="stat-value" style="color:var(--success);">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">High Risk Assessments</span>
+          <span id="stat-high-risk" class="stat-value" style="color:var(--danger);">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Average Risk Score</span>
+          <span id="stat-avg-risk" class="stat-value" style="color:var(--primary);">0%</span>
+        </div>
+      </div>
+
+      <!-- Controls & History Table -->
+      <div class="card">
+        <div class="history-controls">
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <label for="history-risk-filter" style="font-size:0.85rem; font-weight:600;">Filter Risk:</label>
+            <select id="history-risk-filter" class="form-control" style="width:160px; padding:0.35rem 0.6rem;">
+              <option value="">All Risk Tiers</option>
+              <option value="Low Risk">Low Risk</option>
+              <option value="Moderate Risk">Moderate Risk</option>
+              <option value="High Risk">High Risk</option>
+            </select>
+            <button id="btn-refresh-history" class="btn-secondary">Refresh</button>
+          </div>
+          <div>
+            <a href="/api/v1/history/export/csv" class="btn-secondary" style="text-decoration:none; display:inline-block;">Export to CSV 📥</a>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Timestamp</th>
+                <th>Patient Profile</th>
+                <th>Vitals (BP / Chol)</th>
+                <th>Risk Prob</th>
+                <th>Tier</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Scientific Research & Model Analytics -->
+    <section id="analytics-tab" class="tab-panel">
+      <!-- Holdout Test Performance Card -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Hold-out Test Accuracy</span>
+          <span id="test-accuracy" class="stat-value">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Hold-out Test Recall (Sensitivity)</span>
+          <span id="test-recall" class="stat-value" style="color:var(--primary);">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Hold-out Test Specificity</span>
+          <span id="test-specificity" class="stat-value">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Hold-out Test ROC-AUC</span>
+          <span id="test-roc-auc" class="stat-value" style="color:var(--success);">--</span>
+        </div>
+      </div>
+
+      <!-- 7-Model Cross-Validation Comparison Table -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Comparative Study of 7 Machine Learning Algorithms (Experiment B)</h2>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Stratified 5-Fold Cross-Validation on Training Partition (N = 242)</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table comparison-table">
+            <thead>
+              <tr>
+                <th>Model Family & Algorithm</th>
+                <th>CV Accuracy</th>
+                <th>CV Precision</th>
+                <th>CV Recall</th>
+                <th>CV F1-Score</th>
+                <th>CV ROC-AUC (Mean ± Std)</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-table-body">
+              <!-- Comparison rows dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+        <!-- Global SHAP Feature Importance -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title" style="font-size:1rem;">Global Feature Importance (SHAP)</h3>
+          </div>
+          <div id="global-importance-container" style="padding:0.5rem 0;">
+            <!-- Horizontal bars -->
+          </div>
+        </div>
+
+        <!-- ROC Curve Visualization -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title" style="font-size:1rem;">Receiver Operating Characteristic (ROC)</h3>
+          </div>
+          <div style="display:flex; justify-content:center;">
+            <canvas id="roc-canvas" width="400" height="280"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

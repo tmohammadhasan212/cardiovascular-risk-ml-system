@@ -1,46 +1,9 @@
+"""Unit and functional tests for FastAPI endpoints, input validation, and history flows."""
+
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.database.connection import Base, get_db
-from app.database.models import ModelVersion, PredictionRecord  # noqa: F401
-from app.main import app
-
-# In-memory database with StaticPool so all connections share the same memory DB
-engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine
-)
-Base.metadata.create_all(bind=engine)
 
 
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def clean_db():
-    """Recreate tables before each test to maintain state isolation."""
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
-def test_health_endpoint():
+def test_health_endpoint(client):
     """Verify healthcheck endpoint response."""
     response = client.get("/health")
     assert response.status_code == 200
@@ -50,7 +13,15 @@ def test_health_endpoint():
     assert data["database_connected"] is True
 
 
-def test_predict_patient_valid():
+def test_index_dashboard_view(client):
+    """Verify HTML single-page dashboard renders with form and controls."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "CardioPredict ML" in response.text
+    assert "patient-form" in response.text
+
+
+def test_predict_patient_valid(client):
     """Verify valid patient prediction returns probabilities, risk tier, and explanations."""
     payload = {
         "age": 60,
@@ -78,12 +49,11 @@ def test_predict_patient_valid():
     assert data["risk_tier"] in ("Low Risk", "Moderate Risk", "High Risk")
     assert isinstance(data["feature_attributions"], list)
     assert len(data["feature_attributions"]) > 0
-    assert data["id"] is not None  # Successfully persisted in database
+    assert data["id"] is not None
 
 
-def test_predict_patient_invalid_ranges():
+def test_predict_patient_invalid_ranges(client):
     """Verify that clinical boundary violations trigger 422 Unprocessable Entity."""
-    # Age > 120 and negative blood pressure
     payload = {
         "age": 150,
         "sex": 1,
@@ -106,7 +76,7 @@ def test_predict_patient_invalid_ranges():
     assert "detail" in data
 
 
-def test_batch_prediction():
+def test_batch_prediction(client):
     """Verify batch prediction endpoint evaluates multiple patient records."""
     patients = [
         {
@@ -148,7 +118,7 @@ def test_batch_prediction():
     assert data[0]["probability"] < data[1]["probability"]
 
 
-def test_history_flow_and_export():
+def test_history_flow_and_export(client):
     """Verify prediction creation, history pagination, single record lookup, and CSV export."""
     payload = {
         "age": 52,
@@ -167,6 +137,7 @@ def test_history_flow_and_export():
     }
 
     post_resp = client.post("/api/v1/predict", json=payload)
+    assert post_resp.status_code == 200
     record_id = post_resp.json()["id"]
 
     # History list
@@ -191,7 +162,7 @@ def test_history_flow_and_export():
     assert del_resp.json()["success"] is True
 
 
-def test_analytics_endpoints():
+def test_analytics_endpoints(client):
     """Verify model-info, comparison, and global importance research endpoints."""
     # Model info
     resp = client.get("/api/v1/analytics/model-info")

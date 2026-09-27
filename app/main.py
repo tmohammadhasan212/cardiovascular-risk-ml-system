@@ -94,4 +94,4 @@ def index_view(request: Request):
         return HTMLResponse(
             "<h1>Cardiovascular Risk ML System</h1><p>API is running. Visit <a href='/docs'>/docs</a> for Swagger UI.</p>"
         )
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
